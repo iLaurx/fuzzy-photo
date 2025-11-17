@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluador de Calidad de Foto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Estilos para el thumb (punto) del control deslizante */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            /* 100, 116, 237 es Indigo-500 */
+            background: rgba(100, 116, 237, 1);
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* Spinner de carga */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            /* 100, 116, 237 es Indigo-500 */
+            border-top: 4px solid rgba(100, 116, 237, 1);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Clases de utilidad con colores RGBA para fácil edición */
+        .bg-custom-900 { background-color: rgb(8, 10, 14); } /* Gray-900 */
+        .bg-custom-800 { background-color: rgb(10, 15, 22); } /* Gray-800 */
+        .text-custom-100 { color: rgba(243, 244, 246, 1); } /* Gray-100 */
+        .text-custom-300 { color: rgba(209, 213, 219, 1); } /* Gray-300 */
+        .text-custom-400 { color: rgba(156, 163, 175, 1); } /* Gray-400 */
+        .text-indigo-400-rgba { color: rgb(34, 41, 178); } /* Indigo-400 */
+        .bg-indigo-500-rgba { background-color: rgb(63, 171, 23); } /* Indigo-500 */
+        .hover\:bg-indigo-600-rgba:hover { background-color: rgba(63, 171, 23, 0.485); } /* Indigo-600 */
+        .border-gray-700-rgba { border-color: rgb(179, 119, 41); } /* Gray-700 */
+        .bg-indigo-900-50-rgba { background-color: rgba(55, 48, 163, 0.5); } /* Indigo-900 50% opacity */
+        .bg-purple-900-50-rgba { background-color: rgba(76, 29, 149, 0.5); } /* Purple-900 50% opacity */
+        .bg-green-900-50-rgba { background-color: rgba(4, 73, 56, 0.5); } /* Green-900 50% opacity */
+        .bg-gray-700-rgba { background-color: rgb(255, 255, 255); } /* Gray-700 */
+        .bg-indigo-400-rgba-bg { background-color: rgb(63, 171, 23); } /* Indigo-400 */
+    </style>
+</head>
+<body class="bg-custom-900 min-h-screen p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-10 p-6 bg-custom-800 rounded-xl shadow-xl">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-400-rgba mb-2">Evaluador de Calidad de Foto</h1>
+            <p class="text-custom-400">Basado en Fuzzy Logic<code class="font-mono text-sm"></code></p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 p-6 bg-custom-800 rounded-xl shadow-xl">
+                <h2 class="text-2xl font-semibold text-custom-100 mb-6 border-b border-gray-700-rgba pb-2">Subir Imagen y Parámetros Calculados</h2>
+
+                <div class="mb-6">
+                    <label for="imageUpload" class="block text-lg font-medium text-custom-300 mb-2">Seleccionar Imagen:</label>
+                    <input type="file" id="imageUpload" accept="image/*" class="w-full py-2 px-3 border border-gray-700-rgba rounded-lg text-custom-300 bg-custom-900 focus:outline-none focus:ring-2 focus:ring-indigo-400-rgba transition duration-150">
+                </div>
+
+                <div class="mb-4">
+                    <p class="block text-lg font-medium text-custom-300 mb-2 flex justify-between">
+                        <span>Nitidez Calculada:</span>
+                        <span id="nitidezValue" class="text-indigo-400-rgba font-bold">--</span>
+                    </p>
+                </div>
+                <div class="mb-4">
+                    <p class="block text-lg font-medium text-custom-300 mb-2 flex justify-between">
+                        <span>Contraste Calculado:</span>
+                        <span id="contrasteValue" class="text-indigo-400-rgba font-bold">--</span>
+                    </p>
+                </div>
+                <div class="mb-6">
+                    <p class="block text-lg font-medium text-custom-300 mb-2 flex justify-between">
+                        <span>Exposición Calculada:</span>
+                        <span id="exposicionValue" class="text-indigo-400-rgba font-bold">--</span>
+                    </p>
+                </div>
+
+                <button type="button" id="evalButton" class="w-full py-3 bg-indigo-500-rgba text-white font-bold rounded-lg hover:bg-indigo-600-rgba transition duration-150 shadow-md flex items-center justify-center">
+                    <span id="buttonText">Evaluar Calidad de Imagen</span>
+                    <div id="loadingSpinner" class="spinner ml-3 hidden"></div>
+                </button>
+            </div>
+
+            <div class="lg:col-span-1 p-6 bg-custom-800 rounded-xl shadow-xl flex flex-col justify-center items-center">
+                <h2 class="text-2xl font-semibold text-custom-100 mb-6 border-b border-gray-700-rgba pb-2 w-full text-center">Resultado de Lógica Difusa</h2>
+                
+                <div id="resultadoContainer" class="w-full text-center">
+                    <p class="text-custom-400 text-lg mb-2">Calidad Estética (0-100):</p>
+                    <div class="text-6xl font-extrabold text-indigo-400-rgba" id="calidadResultado">--</div>
+                    <p class="text-xl font-medium mt-3 text-custom-300" id="calidadVerbal">Presiona el botón</p>
+
+                    <div class="w-full bg-gray-700-rgba rounded-full h-4 mt-6">
+                        <div id="progressBar" class="h-4 bg-indigo-400-rgba-bg rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+    </div>
+
+    <script>
+        // Función para actualizar la interfaz de usuario con el resultado
+        function updateUI(calidadFinal, nitidez, contraste, exposicion) {
+            const resultadoDisplay = calidadFinal.toFixed(1);
+            document.getElementById('calidadResultado').innerText = resultadoDisplay;
+            document.getElementById('progressBar').style.width = `${calidadFinal}%`;
+            
+            // Mostrar los valores calculados por OpenCV
+            document.getElementById('nitidezValue').innerText = nitidez.toFixed(1);
+            document.getElementById('contrasteValue').innerText = contraste.toFixed(1);
+            document.getElementById('exposicionValue').innerText = exposicion.toFixed(1);
+
+            let verbalText = '';
+            let colorClass = '';
+            if (calidadFinal < 40) {
+                // ROJO-400
+                verbalText = 'Pobre';
+                colorClass = 'text-red-400-rgba';
+            } else if (calidadFinal < 75) {
+                // AMARILLO-400
+                verbalText = 'Aceptable';
+                colorClass = 'text-yellow-400-rgba';
+            } else {
+                // VERDE-400
+                verbalText = 'Excelente';
+                colorClass = 'text-green-400-rgba';
+            }
+            // Usamos una clase de color genérica para el resultado
+            document.getElementById('calidadResultado').className = `text-6xl font-extrabold ${colorClass}`;
+            document.getElementById('calidadVerbal').innerText = verbalText;
+        }
+
+        // Función principal para llamar al backend
+        async function evaluarCalidad(e) {
+            // LA SOLUCIÓN DEFINITIVA: Detiene el comportamiento por defecto del evento (evita la recarga de la página)
+            if (e) {
+                e.preventDefault(); 
+            }
+
+            // 1. Obtener el archivo de imagen
+            const imageInput = document.getElementById('imageUpload');
+            if (imageInput.files.length === 0) {
+                alert("Por favor, selecciona un archivo de imagen primero.");
+                return;
+            }
+            const imageFile = imageInput.files[0];
+
+            const evalButton = document.getElementById('evalButton');
+            const buttonText = document.getElementById('buttonText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            // --- ESTADO DE CARGA ---
+            evalButton.disabled = true;
+            buttonText.innerText = 'Analizando Imagen...';
+            loadingSpinner.classList.remove('hidden');
+
+            // Usar FormData para enviar archivos
+            const formData = new FormData();
+            formData.append('imageFile', imageFile);
+
+            // LLAMADA AL BACKEND
+            try {
+                const response = await fetch('http://127.0.0.1:5000/upload_and_evaluate', {
+                    method: 'POST',
+                    // No es necesario 'Content-Type' cuando se usa FormData
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error en el servidor: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const calidadCalculada = parseFloat(data.calidad);
+
+                // Mostrar Resultado y los valores calculados
+                updateUI(
+                    calidadCalculada, 
+                    data.nitidez_calc, 
+                    data.contraste_calc, 
+                    data.exposicion_calc
+                );
+
+            } catch (error) {
+                console.error("Error al obtener la calificación del backend:", error);
+                document.getElementById('calidadResultado').innerText = 'ERR';
+                document.getElementById('calidadVerbal').innerText = 'Backend no responde';
+                document.getElementById('progressBar').style.width = '0%';
+                
+                // Limpiar los valores calculados en caso de error
+                document.getElementById('nitidezValue').innerText = '--';
+                document.getElementById('contrasteValue').innerText = '--';
+                document.getElementById('exposicionValue').innerText = '--';
+
+            } finally {
+                // --- FINALIZAR ESTADO DE CARGA ---
+                evalButton.disabled = false;
+                buttonText.innerText = 'Evaluar Calidad de Imagen';
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+        
+        // Función de inicialización y ENLACE DE EVENTOS
+        window.onload = function() {
+            // Inicializar los valores en la UI
+            document.getElementById('nitidezValue').innerText = '--';
+            document.getElementById('contrasteValue').innerText = '--';
+            document.getElementById('exposicionValue').innerText = '--';
+
+            // ENLAZAR EL BOTÓN USANDO addEventListener
+            const evalButton = document.getElementById('evalButton');
+            if (evalButton) {
+                evalButton.addEventListener('click', evaluarCalidad);
+            }
+            
+            // Definición de clases de color dinámicas en JS para el resultado
+            // Se añaden aquí para que puedas editarlas fácilmente
+
+            // Colores para el texto de resultado:
+            // ROJO-400
+            const styleRed = document.createElement('style');
+            styleRed.innerHTML = '.text-red-400-rgba { color: rgba(248, 113, 113, 1); }';
+            document.head.appendChild(styleRed);
+
+            // AMARILLO-400
+            const styleYellow = document.createElement('style');
+            styleYellow.innerHTML = '.text-yellow-400-rgba { color: rgba(250, 204, 21, 1); }';
+            document.head.appendChild(styleYellow);
+
+            // VERDE-400
+            const styleGreen = document.createElement('style');
+            styleGreen.innerHTML = '.text-green-400-rgba { color: rgba(74, 222, 128, 1); }';
+            document.head.appendChild(styleGreen);
+        }
+    </script>
+</body>
+</html>
